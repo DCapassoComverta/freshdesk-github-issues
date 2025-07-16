@@ -774,10 +774,10 @@ def get_create_fields(repos: dict):
             "label": "Development Status",
             "label_for_customers": "Development Status",
             "type": "custom_dropdown",
-            "choices" : 
-                [
-                    {"value":"user1","position":1}
-                ],
+            # "choices" : 
+            #     [
+            #         {"value":"user1","position":1}
+            #     ],
             "customers_can_edit": False,
             "required_for_closure": False,
             "required_for_agents": False,
