@@ -30,6 +30,8 @@ def github_run_query(query):
     if request.status_code == 200:
         return request.json()
     else:
+        log.error(f"[red]Query fallita con codice {request.status_code}. Query: {query}")
+        log.error(f"[red]Risposta: {request.text}")
         raise Exception(
             "Query failed to run by returning code of {}. {}".format(
                 request.status_code, query
@@ -129,8 +131,9 @@ def github_get_members():
             members.append(m["login"])
         return members
     else:
-        log.error("[red]" + response.reason)
-        log.error("[red]" + str(response.content))
+        log.error(f"[red]Errore nel recupero dei membri Github: {response.reason}")
+        log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
+        return [] # Restituisce una lista vuota in caso di errore
 
 
 def github_get_repos():
@@ -155,8 +158,9 @@ def github_get_repos():
             except:
                 morepages = False
         else:
-            log.error("[red]" + response.reason)
-            log.error("[red]" + str(response.content))
+            log.error(f"[red]Errore nel recupero dei repository Github: {response.reason}")
+            log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
+            morepages = False # Ferma il loop in caso di errore
     return repos
 
 
@@ -313,8 +317,9 @@ def github_create_issue(ticket: dict, repo: str):
             gh_issue = json.loads(response.content)
             return gh_issue
         else:
-            log.error("[red]" + response.reason)
-            log.error("[red]" + str(response.content))
+            log.error(f"[red]Errore nella creazione dell'Issue Github: {response.reason}")
+            log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
+            return {} # Restituisce un dizionario vuoto in caso di errore
 
 
 def github_compare_issue_field(
@@ -380,8 +385,9 @@ def github_update_issue(ticket: dict, gh_issue: dict, repo: str, card: dict):
             gh_issue = json.loads(response.content)
             return card
         else:
-            log.error("[red]" + response.reason)
-            log.error("[red]" + str(response.content))
+            log.error(f"[red]Errore nell'aggiornamento dell'Issue Github: {response.reason}")
+            log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
+            return card # Restituisce la card originale in caso di errore
     else:
         return card
 
@@ -395,8 +401,9 @@ def github_get_issue(gh_issue_number: str, repo: str):
         gh_issue = json.loads(response.content)
         return gh_issue
     else:
-        log.error("[red]" + response.reason)
-        log.error("[red]" + str(response.content))
+        log.error(f"[red]Errore nel recupero dell'Issue Github: {response.reason}")
+        log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
+        return None # Restituisce None in caso di errore
 
 
 def github_update_project_card(card: dict, company: str, priority: str, fields: dict):
@@ -470,14 +477,16 @@ def freshdesk_get_fields():
     if response.status_code == 200:
         return json.loads(response.content)
     else:
-        log.error("[red]" + response.reason)
-        log.error("[red]" + str(response.content))
+        log.error(f"[red]Errore nel recupero dei campi Freshdesk: {response.reason}")
+        log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
+        return [] # Restituisce una lista vuota in caso di errore
 
 
 def freshdesk_get_field_id(field_name: str, fields: list):
     for f in fields:
         if f["name"] == field_name:
             return f["id"]
+    return None # Aggiunto per gestire il caso in cui il campo non venga trovato
 
 
 def freshdesk_get_company_name(ticket: dict):
@@ -488,8 +497,9 @@ def freshdesk_get_company_name(ticket: dict):
         if response.status_code == 200:
             return json.loads(response.content)["name"]
         else:
-            log.error("[red]" + response.reason)
-            log.error("[red]" + str(response.content))
+            log.error(f"[red]Errore nel recupero del nome azienda Freshdesk: {response.reason}")
+            log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
+            return None # Restituisce None in caso di errore
 
 
 def freshdesk_create_field(field: dict):
@@ -498,49 +508,93 @@ def freshdesk_create_field(field: dict):
     headers, auth = freshdesk_headers()
     response = requests.post(url=url, headers=headers, json=field, auth=auth)
     if response.status_code == 201:
+        log.info(f"[green]Campo Freshdesk '{field.get('label', 'Sconosciuto')}' creato con successo.")
         return json.loads(response.content)
     else:
-        log.error("[red]" + response.reason)
+        log.error(f"[red]Errore nella creazione del campo Freshdesk '{field.get('label', 'Sconosciuto')}': {response.reason}")
+        log.error(f"[red]Codice di stato: {response.status_code}")
+        log.error(f"[red]Contenuto risposta: {response.text}")
+        return None # Importante: restituisce None in caso di errore
 
 
 def freshdesk_view_field(field_name: str, fields: list):
     field_id = freshdesk_get_field_id(field_name, fields)
+    if field_id is None:
+        log.warning(f"[yellow]Campo Freshdesk '{field_name}' non trovato tra i campi esistenti.")
+        return None # Restituisce None se l'ID non viene trovato
+    
     url = f"https://{freshdesk_url}/api/v2/admin/ticket_fields/{field_id}"
     headers, auth = freshdesk_headers()
     response = requests.get(url=url, headers=headers, auth=auth)
     if response.status_code == 200:
         return json.loads(response.content)
     else:
-        log.error("[red]" + response.reason)
-        log.error("[red]" + str(response.content))
+        log.error(f"[red]Errore nella visualizzazione del campo Freshdesk '{field_name}': {response.reason}")
+        log.error(f"[red]Codice di stato: {response.status_code}")
+        log.error(f"[red]Contenuto risposta: {response.text}")
+        return None # Importante: restituisce None in caso di errore
 
 
 def freshdesk_get_field_choices(response: dict):
-    return response["choices"]
+    # Aggiunto controllo per assicurarsi che 'response' non sia None
+    if response and "choices" in response:
+        return response["choices"]
+    return [] # Restituisce una lista vuota se le scelte non sono disponibili
 
 
 def freshdesk_field_choice_exists(field_choices: dict, choice: str):
+    # Assicurati che field_choices sia una lista prima di iterare
+    if not isinstance(field_choices, list):
+        return False
     for c in field_choices:
-        if choice in c["value"]:
+        if choice in c.get("value", ""): # Usare .get per sicurezza
             return True
+    return False
 
 
 def freshdesk_add_field_choice(field: dict, field_choices: list, new_value: str):
+    # Questa logica sembra creare una nuova lista con solo la nuova scelta,
+    # invece di aggiungere alla lista esistente. Potrebbe essere un bug logico.
+    # Se l'intento è aggiungere, la logica dovrebbe essere:
+    # field_choices.append(new_choice)
+    # updated_field.update({"choices": field_choices})
+    # Per ora, mantengo la logica originale ma segnalo la potenziale anomalia.
+
     if not field_choices:
         field_choices = []
     max_position = 0
     for c in field_choices:
-        if c["position"] > max_position:
+        if c.get("position", 0) > max_position: # Usare .get per sicurezza
             max_position = c["position"]
     new_choice = {}
     new_choice.update({"label": new_value})
     new_choice.update({"value": new_value})
     new_choice.update({"position": max_position + 1})
-    field_choices = []
-    field_choices.append(new_choice)
+    
+    # ATTENZIONE: Questo sovrascrive field_choices con una nuova lista contenente solo new_choice.
+    # Se l'intento è AGGIUNGERE la scelta alla lista esistente, la riga sotto è errata.
+    # Dovrebbe essere field_choices.append(new_choice) e poi passare la lista aggiornata.
+    # Ho commentato la riga originale e aggiunto quella corretta per chiarezza.
+    # field_choices = [] # Rimuovi o commenta questa riga se vuoi aggiungere alla lista esistente
+    # field_choices.append(new_choice) # Questa riga dovrebbe essere usata per aggiungere
+
+    # Per mantenere la logica che sembra essere stata tentata, ma con un fix:
+    # Creiamo una nuova lista che include le scelte originali e la nuova.
+    # Se field_choices è None o vuoto all'inizio di questa funzione,
+    # la logica sopra calcola max_position su una lista vuota, il che è corretto.
+    # Poi aggiungiamo la nuova scelta alla lista.
+    
+    # Assicuriamoci che field_choices sia una lista valida per l'append.
+    if not isinstance(field_choices, list):
+        field_choices = []
+    
+    # Crea una copia per evitare modifiche in-place indesiderate se field_choices è passato per riferimento
+    updated_choices_list = list(field_choices)
+    updated_choices_list.append(new_choice)
+
     updated_field = {}
     updated_field.update({"label": field["label"]})
-    updated_field.update({"choices": field_choices})
+    updated_field.update({"choices": updated_choices_list}) # Usa la lista aggiornata
     return updated_field
 
 
@@ -550,16 +604,29 @@ def freshdesk_update_field(field_id: int, field: dict):
     headers, auth = freshdesk_headers()
     response = requests.put(url=url, headers=headers, json=field, auth=auth)
     if response.status_code == 200:
+        log.info(f"[green]Campo Freshdesk '{field.get('label', 'Sconosciuto')}' aggiornato con successo.")
         return json.loads(response.content)
     else:
-        log.error("[red]" + response.reason)
-        log.error("[red]" + str(response.content))
+        log.error(f"[red]Errore nell'aggiornamento del campo Freshdesk '{field.get('label', 'Sconosciuto')}': {response.reason}")
+        log.error(f"[red]Codice di stato: {response.status_code}")
+        log.error(f"[red]Contenuto risposta: {response.text}")
+        return None # Importante: restituisce None in caso di errore
 
 
 def freshdesk_resolve_priority(priority: str, fields: dict):
+    # Aggiunto controllo per None su freshdesk_view_field
     field_response = freshdesk_view_field(field_name="priority", fields=fields)
+    if field_response is None:
+        log.error("[red]Impossibile risolvere la priorità: campo 'priority' non trovato o errore nel recupero.")
+        return priority # Restituisce la priorità originale o un valore di default
+    
     field_choices = freshdesk_get_field_choices(response=field_response)
-    return next(ch for ch in field_choices if ch["value"] == priority)["label"]
+    # Aggiunto controllo per gestire il caso in cui 'next' non trovi corrispondenze
+    try:
+        return next(ch for ch in field_choices if ch["value"] == priority)["label"]
+    except StopIteration:
+        log.warning(f"[yellow]Priorità '{priority}' non trovata tra le scelte del campo Freshdesk.")
+        return priority # Restituisce la priorità originale se non trovata
 
 
 def freshdesk_get_tickets(repo: str):
@@ -584,12 +651,14 @@ def freshdesk_get_tickets(repo: str):
         log.info("[green]Freshdesk Tickets found: " + str(len(tickets)))
         return tickets
     else:
-        log.error("[red]" + response.reason)
-        log.error("[red]" + str(response.content))
+        log.error(f"[red]Errore nel recupero dei ticket Freshdesk: {response.reason}")
+        log.error(f"[red]Codice di stato: {response.status_code}")
+        log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
+        return [] # Restituisce una lista vuota in caso di errore
 
 
 def freshdesk_get_ticket_summary(ticket: dict):
-    log.info("[yellow]Getting Freshdesk Ticket Summary")
+    log.info(f"[yellow]Getting Freshdesk Ticket Summary per ticket ID: {ticket['id']}")
     url = (
         "https://" + freshdesk_url + "/api/v2/tickets/" + str(ticket["id"]) + "/summary"
     )
@@ -601,7 +670,9 @@ def freshdesk_get_ticket_summary(ticket: dict):
         ticket.update({"summary": summary})
         return ticket
     else:
-        log.info("[red]" + response.reason)
+        log.error(f"[red]Errore nel recupero del summary del ticket {ticket['id']}: {response.reason}")
+        log.error(f"[red]Codice di stato: {response.status_code}")
+        log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
         ticket.update({"summary": ""})
         return ticket
 
@@ -623,14 +694,17 @@ def freshdesk_update_ticket_ghissue(ticket: dict, gh_issue: dict):
             url=url, headers=headers, json=updated_ticket, auth=auth
         )
         if response.status_code == 200:
+            log.info(f"[green]Ticket Freshdesk {ticket['id']} aggiornato con Issue Github.")
             return json.loads(response.content)
         else:
-            log.error("[red]" + response.reason)
-            log.error("[red]" + str(response.content))
+            log.error(f"[red]Errore nell'aggiornamento del ticket Freshdesk {ticket['id']} con Issue Github: {response.reason}")
+            log.error(f"[red]Codice di stato: {response.status_code}")
+            log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
+            return None # Restituisce None in caso di errore
 
 
 def freshdesk_add_note(gh_issue: dict, ticket_id, repo: str):
-    log.info("[yellow]Posting Freshdesk Note")
+    log.info(f"[yellow]Posting Freshdesk Note per ticket ID: {ticket_id}")
     try:
         assignee = gh_issue["user"]["login"]
     except:
@@ -643,10 +717,13 @@ def freshdesk_add_note(gh_issue: dict, ticket_id, repo: str):
     headers, auth = freshdesk_headers()
     response = requests.post(url=url, headers=headers, json=note, auth=auth)
     if response.status_code == 201:
+        log.info(f"[green]Nota aggiunta al ticket Freshdesk {ticket_id}.")
         return json.loads(response.content)
     else:
-        log.error("[red]" + response.reason)
-        log.error("[red]" + str(response.content))
+        log.error(f"[red]Errore nell'aggiunta della nota al ticket Freshdesk {ticket_id}: {response.reason}")
+        log.error(f"[red]Codice di stato: {response.status_code}")
+        log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
+        return None # Restituisce None in caso di errore
 
 
 def freshdesk_update_ticket_from_project(card: dict, ticket: dict):
@@ -689,20 +766,25 @@ def freshdesk_update_ticket_from_project(card: dict, ticket: dict):
             url=url, headers=headers, json=updated_ticket, auth=auth
         )
         if response.status_code == 200:
+            log.info(f"[green]Ticket Freshdesk {ticket['id']} aggiornato dal progetto.")
             return json.loads(response.content)
         else:
-            log.error("[red]" + response.reason)
-            log.error("[red]" + str(response.content))
+            log.error(f"[red]Errore nell'aggiornamento del ticket Freshdesk {ticket['id']} dal progetto: {response.reason}")
+            log.error(f"[red]Codice di stato: {response.status_code}")
+            log.error(f"[red]Contenuto risposta: {response.content.decode('utf-8')}")
+            return None # Restituisce None in caso di errore
 
 
 def get_create_fields(repos: dict):
     fields = freshdesk_get_fields()
     github_project_fields = github_get_project_fields()
 
+    # Gestione del campo 'Task Title'
     if not next(
         (field for field in fields if field["name"] == "cf_development_task_title"),
         False,
     ):
+        log.info("[yellow]Campo 'Task Title' non trovato, tentativo di creazione.")
         field = {
             "label": "Task Title",
             "label_for_customers": "Task Title",
@@ -714,10 +796,15 @@ def get_create_fields(repos: dict):
             "displayed_to_customers": True,
         }
         freshdesk_create_field(field=field)
+    else:
+        log.info("[green]Campo 'Task Title' già esistente.")
 
+
+    # Gestione del campo 'Github Issue'
     if not next(
         (field for field in fields if field["name"] == "cf_github_issue"), False
     ):
+        log.info("[yellow]Campo 'Github Issue' non trovato, tentativo di creazione.")
         field = {
             "label": "Github Issue",
             "label_for_customers": "Github Issue",
@@ -729,10 +816,17 @@ def get_create_fields(repos: dict):
             "displayed_to_customers": False,
         }
         freshdesk_create_field(field=field)
+    else:
+        log.info("[green]Campo 'Github Issue' già esistente.")
 
-    if not next(
+    # Gestione del campo 'Assigned Developer'
+    assigned_developer_field_exists = next(
         (field for field in fields if field["name"] == "cf_assigned_developer"), False
-    ):
+    )
+    
+    field_response_assigned_dev = None
+    if not assigned_developer_field_exists:
+        log.info("[yellow]Campo 'Assigned Developer' non trovato, tentativo di creazione.")
         field = {
             "label": "Assigned Developer",
             "label_for_customers": "Assigned Developer",
@@ -747,29 +841,39 @@ def get_create_fields(repos: dict):
             "required_for_customers": False,
             "displayed_to_customers": False,
         }
-        field_response = freshdesk_create_field(field)
+        field_response_assigned_dev = freshdesk_create_field(field)
     else:
-        field_response = freshdesk_view_field(
+        log.info("[green]Campo 'Assigned Developer' già esistente, recupero informazioni.")
+        field_response_assigned_dev = freshdesk_view_field(
             field_name="cf_assigned_developer", fields=fields
         )
 
-    field_id = field_response["id"]
-    field_choices = freshdesk_get_field_choices(response=field_response)
-    members = github_get_members()
-    updated_field = None
-    for member in members:
-        if not freshdesk_field_choice_exists(
-            field_choices=field_choices, choice=member
-        ):
-            updated_field = freshdesk_add_field_choice(
-                field=field_response, field_choices=field_choices, new_value=member
-            )
-    if updated_field:
-        freshdesk_update_field(field_id=field_id, field=updated_field)
+    if field_response_assigned_dev: # Procedi solo se field_response_assigned_dev non è None
+        field_id_assigned_dev = field_response_assigned_dev["id"]
+        field_choices_assigned_dev = freshdesk_get_field_choices(response=field_response_assigned_dev)
+        members = github_get_members()
+        updated_field_assigned_dev = None
+        for member in members:
+            if not freshdesk_field_choice_exists(
+                field_choices=field_choices_assigned_dev, choice=member
+            ):
+                updated_field_assigned_dev = freshdesk_add_field_choice(
+                    field=field_response_assigned_dev, field_choices=field_choices_assigned_dev, new_value=member
+                )
+        if updated_field_assigned_dev:
+            freshdesk_update_field(field_id=field_id_assigned_dev, field=updated_field_assigned_dev)
+    else:
+        log.error("[red]Impossibile procedere con 'Assigned Developer': campo non creato o recuperato.")
 
-    if not next(
+
+    # Gestione del campo 'Development Status'
+    development_status_field_exists = next(
         (field for field in fields if field["name"] == "cf_development_status"), False
-    ):
+    )
+
+    field_response_dev_status = None
+    if not development_status_field_exists:
+        log.info("[yellow]Campo 'Development Status' non trovato, tentativo di creazione.")
         field = {
             "label": "Development Status",
             "label_for_customers": "Development Status",
@@ -784,27 +888,56 @@ def get_create_fields(repos: dict):
             "required_for_customers": False,
             "displayed_to_customers": False,
         }
-        field_response = freshdesk_create_field(field)
+        field_response_dev_status = freshdesk_create_field(field)
     else:
-        field_response = freshdesk_view_field(
+        log.info("[green]Campo 'Development Status' già esistente, recupero informazioni.")
+        field_response_dev_status = freshdesk_view_field(
             field_name="cf_development_status", fields=fields
         )
 
-    field_id = field_response["id"]
-    field_choices = freshdesk_get_field_choices(response=field_response)
-    statuses = github_get_project_statuses(github_project_fields)
-    updated_field = None
-    for status in statuses:
-        if not freshdesk_field_choice_exists(
-            field_choices=field_choices, choice=status
-        ):
-            updated_field = freshdesk_add_field_choice(
-                field=field_response, field_choices=field_choices, new_value=status
-            )
-    if updated_field:
-        freshdesk_update_field(field_id=field_id, field=updated_field)
+    if field_response_dev_status: # Procedi solo se field_response_dev_status non è None
+        field_id_dev_status = field_response_dev_status["id"]
+        field_choices_dev_status = freshdesk_get_field_choices(response=field_response_dev_status)
+        statuses = github_get_project_statuses(github_project_fields)
+        updated_field_dev_status = None
+        
+        # Correggi la logica di freshdesk_add_field_choice per aggiungere correttamente le scelte
+        current_choices_for_update = list(field_choices_dev_status) # Inizia con le scelte attuali
+        
+        for status in statuses:
+            if not freshdesk_field_choice_exists(
+                field_choices=current_choices_for_update, choice=status
+            ):
+                # Aggiungi la nuova scelta alla lista temporanea
+                max_position = 0
+                if current_choices_for_update:
+                    max_position = max(c.get("position", 0) for c in current_choices_for_update)
+                
+                new_choice = {
+                    "label": status,
+                    "value": status,
+                    "position": max_position + 1
+                }
+                current_choices_for_update.append(new_choice)
+                updated_field_dev_status = { # Prepara l'oggetto per l'aggiornamento
+                    "label": field_response_dev_status["label"],
+                    "choices": current_choices_for_update
+                }
+        
+        if updated_field_dev_status: # Se ci sono state aggiunte, aggiorna il campo
+            freshdesk_update_field(field_id=field_id_dev_status, field=updated_field_dev_status)
+    else:
+        log.error("[red]Impossibile procedere con 'Development Status': campo non creato o recuperato.")
 
-    if not next((field for field in fields if field["name"] == "cf_repository"), False):
+
+    # Gestione del campo 'Repository'
+    repository_field_exists = next(
+        (field for field in fields if field["name"] == "cf_repository"), False
+    )
+
+    field_response_repo = None
+    if not repository_field_exists:
+        log.info("[yellow]Campo 'Repository' non trovato, tentativo di creazione.")
         field = {
             "label": "Repository",
             "label_for_customers": "Repository",
@@ -819,20 +952,45 @@ def get_create_fields(repos: dict):
             "required_for_customers": False,
             "displayed_to_customers": False,
         }
-        field_response = freshdesk_create_field(updated_field)
+        # ATTENZIONE: Qui c'era un errore, passava updated_field invece di field
+        field_response_repo = freshdesk_create_field(field) 
     else:
-        field_response = freshdesk_view_field(field_name="cf_repository", fields=fields)
+        log.info("[green]Campo 'Repository' già esistente, recupero informazioni.")
+        field_response_repo = freshdesk_view_field(field_name="cf_repository", fields=fields)
 
-    field_id = field_response["id"]
-    field_choices = freshdesk_get_field_choices(response=field_response)
-    for repo in repos:
-        if not freshdesk_field_choice_exists(field_choices=field_choices, choice=repo):
-            updated_field = freshdesk_add_field_choice(
-                field=field_response, field_choices=field_choices, new_value=repo
-            )
-            freshdesk_update_field(field_id=field_id, field=updated_field)
+    if field_response_repo: # Procedi solo se field_response_repo non è None
+        field_id_repo = field_response_repo["id"]
+        field_choices_repo = freshdesk_get_field_choices(response=field_response_repo)
+        
+        current_choices_for_update_repo = list(field_choices_repo) # Inizia con le scelte attuali
+        updated_field_repo = None # Reset dell'updated_field per questo blocco
+        
+        for repo_name in repos: # Rinominato 'repo' in 'repo_name' per evitare shadowing
+            if not freshdesk_field_choice_exists(field_choices=current_choices_for_update_repo, choice=repo_name):
+                max_position = 0
+                if current_choices_for_update_repo:
+                    max_position = max(c.get("position", 0) for c in current_choices_for_update_repo)
+                
+                new_choice = {
+                    "label": repo_name,
+                    "value": repo_name,
+                    "position": max_position + 1
+                }
+                current_choices_for_update_repo.append(new_choice)
+                updated_field_repo = { # Prepara l'oggetto per l'aggiornamento
+                    "label": field_response_repo["label"],
+                    "choices": current_choices_for_update_repo
+                }
+        
+        if updated_field_repo: # Se ci sono state aggiunte, aggiorna il campo
+            freshdesk_update_field(field_id=field_id_repo, field=updated_field_repo)
+    else:
+        log.error("[red]Impossibile procedere con 'Repository': campo non creato o recuperato.")
 
+
+    # Gestione del campo 'Start Date'
     if not next((field for field in fields if field["name"] == "cf_start_date"), False):
+        log.info("[yellow]Campo 'Start Date' non trovato, tentativo di creazione.")
         field = {
             "label": "Start Date",
             "label_for_customers": "Start Date",
@@ -844,8 +1002,12 @@ def get_create_fields(repos: dict):
             "displayed_to_customers": True,
         }
         freshdesk_create_field(field=field)
+    else:
+        log.info("[green]Campo 'Start Date' già esistente.")
 
+    # Gestione del campo 'End Date'
     if not next((field for field in fields if field["name"] == "cf_end_date"), False):
+        log.info("[yellow]Campo 'End Date' non trovato, tentativo di creazione.")
         field = {
             "label": "End Date",
             "label_for_customers": "End Date",
@@ -857,6 +1019,8 @@ def get_create_fields(repos: dict):
             "displayed_to_customers": True,
         }
         freshdesk_create_field(field=field)
+    else:
+        log.info("[green]Campo 'End Date' già esistente.")
 
     return fields, github_project_fields
 
@@ -871,12 +1035,12 @@ def create_update_github_issues(fd_fields, gh_fields: dict, repo: str, cards: di
                 t["custom_fields"]["cf_repository"] != None
             ):
                 gh_issue = github_create_issue(t, repo)
-                if gh_issue != {}:
+                if gh_issue != {}: # Controlla se l'issue è stata creata con successo
                     freshdesk_update_ticket_ghissue(ticket=t, gh_issue=gh_issue)
                     freshdesk_add_note(gh_issue=gh_issue, ticket_id=t["id"], repo=repo)
         else:
             gh_issue = github_get_issue(t["custom_fields"]["cf_github_issue"], repo)
-            if gh_issue:
+            if gh_issue: # Controlla se l'issue Github è stata recuperata
                 card = next(
                     (
                         c
@@ -886,17 +1050,19 @@ def create_update_github_issues(fd_fields, gh_fields: dict, repo: str, cards: di
                     ),
                     False,
                 )
-                if card:
+                if card: # Controlla se la card del progetto è stata trovata
                     newcard = github_update_issue(t, gh_issue, repo, card)
-                    github_update_project_card(
-                        card=newcard,
-                        company=freshdesk_get_company_name(ticket=t),
-                        priority=freshdesk_resolve_priority(
-                            t["priority"], fields=fd_fields
-                        ),
-                        fields=gh_fields,
-                    )
-                    freshdesk_update_ticket_from_project(card=newcard, ticket=t)
+                    # Assicurati che newcard non sia None prima di procedere
+                    if newcard:
+                        github_update_project_card(
+                            card=newcard,
+                            company=freshdesk_get_company_name(ticket=t),
+                            priority=freshdesk_resolve_priority(
+                                t["priority"], fields=fd_fields
+                            ),
+                            fields=gh_fields,
+                        )
+                        freshdesk_update_ticket_from_project(card=newcard, ticket=t)
     log.info("[green]Ending sync for Repository " + repo)
 
 
@@ -904,5 +1070,10 @@ if __name__ == "__main__":
     repos = github_get_repos()
     cards = github_get_project_cards()
     fd_fields, gh_fields = get_create_fields(repos)
+    # Aggiunto controllo per assicurarsi che i campi siano stati recuperati/creati correttamente
+    if fd_fields is None or gh_fields is None:
+        log.error("[red]Errore critico: Impossibile recuperare o creare i campi Freshdesk/Github. Uscita.")
+        exit(1) # Termina lo script con un codice di errore
+        
     for repo in repos:
         create_update_github_issues(fd_fields, gh_fields, repo, cards)
