@@ -736,7 +736,11 @@ def get_create_fields(repos: dict):
         field = {
             "label": "Assigned Developer",
             "label_for_customers": "Assigned Developer",
-            "type": "dropdown",
+            "type": "custom_dropdown",
+            "choices" : 
+                [
+                    {"value":"user1","position":1}
+                ],
             "customers_can_edit": False,
             "required_for_closure": False,
             "required_for_agents": False,
@@ -769,7 +773,11 @@ def get_create_fields(repos: dict):
         field = {
             "label": "Development Status",
             "label_for_customers": "Development Status",
-            "type": "dropdown",
+            "type": "custom_dropdown",
+            "choices" : 
+                [
+                    {"value":"user1","position":1}
+                ],
             "customers_can_edit": False,
             "required_for_closure": False,
             "required_for_agents": False,
@@ -800,7 +808,11 @@ def get_create_fields(repos: dict):
         field = {
             "label": "Repository",
             "label_for_customers": "Repository",
-            "type": "dropdown",
+            "type": "custom_dropdown",
+            "choices" : 
+                [
+                    {"value":"user1","position":1}
+                ],
             "customers_can_edit": False,
             "required_for_closure": False,
             "required_for_agents": False,
